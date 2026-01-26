@@ -352,6 +352,11 @@ describe('useOfflineDataCache', () => {
         expect(result.current.isInitialized).toBe(true);
       });
 
+      // Clear any existing data first
+      await act(async () => {
+        await result.current.clearAll();
+      });
+
       await act(async () => {
         await result.current.cachePriceData({
           commodity: 'tomato',
