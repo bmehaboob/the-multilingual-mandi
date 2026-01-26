@@ -1,5 +1,5 @@
 """Transaction schemas for API requests and responses"""
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List, Dict
 from datetime import datetime
 from uuid import UUID
@@ -21,22 +21,23 @@ class CreateTransactionRequest(BaseModel):
     conversation_id: Optional[str] = Field(None, description="Associated conversation ID")
     location: Optional[Dict] = Field(None, description="Location data (state, district, etc.)")
     
-    @validator('buyer_id', 'seller_id', 'conversation_id')
-    def validate_uuid(cls, v, field):
+    @field_validator('buyer_id', 'seller_id', 'conversation_id')
+    @classmethod
+    def validate_uuid(cls, v):
         """Validate UUID format"""
         if v is not None:
             try:
                 UUID(v)
             except ValueError:
-                raise ValueError(f"Invalid UUID format for {field.name}: {v}")
+                raise ValueError(f"Invalid UUID format: {v}")
         return v
     
-    @validator('seller_id')
-    def validate_different_parties(cls, v, values):
+    @model_validator(mode='after')
+    def validate_different_parties(self):
         """Ensure buyer and seller are different"""
-        if 'buyer_id' in values and v == values['buyer_id']:
+        if self.buyer_id == self.seller_id:
             raise ValueError("Buyer and seller must be different users")
-        return v
+        return self
 
 
 class TransactionResponse(BaseModel):
