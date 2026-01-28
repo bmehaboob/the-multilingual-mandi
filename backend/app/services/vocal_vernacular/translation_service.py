@@ -2,8 +2,10 @@
 import time
 import re
 from typing import Optional, List, Dict
+from uuid import UUID
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 import torch
+from sqlalchemy.orm import Session
 
 from .models import TranslationResult, Entity, Message
 
@@ -152,7 +154,11 @@ class TranslationService:
         self,
         text: str,
         source_lang: str,
-        target_lang: str
+        target_lang: str,
+        user_id: Optional[UUID] = None,
+        db: Optional[Session] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
     ) -> TranslationResult:
         """
         Translate text between languages
@@ -161,9 +167,15 @@ class TranslationService:
             text: Text to translate
             source_lang: Source language code (e.g., 'hin_Deva')
             target_lang: Target language code (e.g., 'tel_Telu')
+            user_id: Optional user ID for audit logging
+            db: Optional database session for audit logging
+            ip_address: Optional IP address for audit logging
+            user_agent: Optional user agent for audit logging
             
         Returns:
             TranslationResult with translated text and metadata
+            
+        Validates: Requirements 3.1, 3.2, 15.10
         """
         start_time = time.time()
         
@@ -208,7 +220,7 @@ class TranslationService:
         
         processing_time = (time.time() - start_time) * 1000
         
-        return TranslationResult(
+        result = TranslationResult(
             text=translated_text,
             confidence=confidence,
             source_language=source_lang,
@@ -216,6 +228,36 @@ class TranslationService:
             preserved_entities=entities,
             processing_time_ms=processing_time
         )
+        
+        # Audit logging
+        if db and user_id:
+            try:
+                from app.services.audit.audit_logger import AuditLogger
+                audit_logger = AuditLogger(db)
+                
+                audit_logger.log_data_processing(
+                    operation="translation",
+                    resource_type="message",
+                    resource_id=None,  # Message may not be persisted yet
+                    actor_id=user_id,
+                    result="success",
+                    metadata={
+                        "source_language": source_lang,
+                        "target_language": target_lang,
+                        "confidence": confidence,
+                        "processing_time_ms": processing_time,
+                        "text_length": len(text),
+                        "entities_preserved": len(entities)
+                    },
+                    description=f"Text translated from {source_lang} to {target_lang}",
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Failed to log audit entry: {e}")
+        
+        return result
     
     def translate_with_context(
         self,

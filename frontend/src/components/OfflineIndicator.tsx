@@ -2,22 +2,40 @@
  * Offline Indicator Component
  * 
  * Displays offline status and service worker update notifications
+ * Provides voice notifications when network status changes
  * Requirements: 12.4, 19.1
  */
 
 import React from 'react';
 import { useServiceWorker } from '../services/useServiceWorker';
+import { useOfflineNotification } from '../services/useOfflineNotification';
 
 interface OfflineIndicatorProps {
   className?: string;
+  language?: string;
+  enableVoiceNotifications?: boolean;
+  volume?: number;
 }
 
 /**
  * Component that shows offline status and update notifications
  * Requirement 12.4: Notify users when operating in offline mode
+ * Requirement 12.4: Provide voice notification when going offline/online
  */
-export const OfflineIndicator: React.FC<OfflineIndicatorProps> = ({ className = '' }) => {
+export const OfflineIndicator: React.FC<OfflineIndicatorProps> = ({ 
+  className = '',
+  language = 'en',
+  enableVoiceNotifications = true,
+  volume = 0.7,
+}) => {
   const [{ isOnline, isUpdateAvailable }, { updateServiceWorker }] = useServiceWorker();
+  
+  // Enable voice notifications for network status changes
+  useOfflineNotification({
+    enabled: enableVoiceNotifications,
+    language,
+    volume,
+  });
 
   return (
     <div className={`offline-indicator ${className}`}>

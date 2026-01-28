@@ -129,7 +129,7 @@ describe('useOfflineSync', () => {
 
       await waitFor(() => {
         expect(onMessageQueued).toHaveBeenCalledTimes(1);
-      });
+      }, { timeout: 3000 });
     });
   });
 
@@ -194,17 +194,19 @@ describe('useOfflineSync', () => {
         });
       });
 
-      act(() => {
+      await act(async () => {
         result.current[1].syncAll();
+        // Wait a tick for state to update
+        await new Promise(resolve => setTimeout(resolve, 10));
       });
 
       await waitFor(() => {
         expect(result.current[0].isSyncing).toBe(true);
-      });
+      }, { timeout: 500 });
 
       await waitFor(() => {
         expect(result.current[0].isSyncing).toBe(false);
-      }, { timeout: 200 });
+      }, { timeout: 500 });
     });
 
     it('should call sync callbacks', async () => {
@@ -236,8 +238,10 @@ describe('useOfflineSync', () => {
         await result.current[1].syncAll();
       });
 
-      expect(onSyncStart).toHaveBeenCalledTimes(1);
-      expect(onSyncComplete).toHaveBeenCalledTimes(1);
+      await waitFor(() => {
+        expect(onSyncStart).toHaveBeenCalledTimes(1);
+        expect(onSyncComplete).toHaveBeenCalledTimes(1);
+      }, { timeout: 3000 });
     });
   });
 

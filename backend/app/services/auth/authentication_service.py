@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.models.user import User
 from app.services.auth.voice_biometric_verification import VoiceBiometricVerification
 from app.services.auth.models import VoiceSample
+from app.services.audit.audit_logger import AuditLogger
 from app.core.security import create_access_token
 from app.core.config import settings
 
@@ -42,18 +43,22 @@ class AuthenticationService:
         db: Session,
         phone_number: str,
         audio_data: str,
-        sample_rate: int = 16000
+        sample_rate: int = 16000,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
     ) -> Tuple[bool, Optional[User], Optional[str], float]:
         """
         Authenticate user using voice biometrics.
         
-        Requirements: 21.2, 21.3
+        Requirements: 21.2, 21.3, 15.10
         
         Args:
             db: Database session
             phone_number: User's phone number
             audio_data: Base64 encoded audio data
             sample_rate: Audio sample rate in Hz
+            ip_address: Optional IP address for audit logging
+            user_agent: Optional user agent for audit logging
         
         Returns:
             Tuple of (success, user, error_message, confidence_score)
@@ -64,11 +69,37 @@ class AuthenticationService:
         user = db.query(User).filter(User.phone_number == phone_number).first()
         if not user:
             logger.warning(f"User not found for phone: {phone_number}")
+            
+            # Log failed authentication attempt
+            audit_logger = AuditLogger(db)
+            audit_logger.log_authentication(
+                actor_id=None,
+                auth_method="voice_biometric",
+                result="failure",
+                metadata={"reason": "user_not_found", "phone_number_hash": phone_number[-4:]},
+                description="Authentication failed: user not found",
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
             return False, None, "User not found", 0.0
         
         # Check if user has voiceprint enrolled
         if not user.voiceprint:
             logger.warning(f"No voiceprint enrolled for user: {user.id}")
+            
+            # Log failed authentication attempt
+            audit_logger = AuditLogger(db)
+            audit_logger.log_authentication(
+                actor_id=user.id,
+                auth_method="voice_biometric",
+                result="failure",
+                metadata={"reason": "no_voiceprint"},
+                description="Authentication failed: no voiceprint enrolled",
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
             return False, None, "No voiceprint enrolled. Please complete onboarding.", 0.0
         
         # Decode audio data
@@ -76,6 +107,19 @@ class AuthenticationService:
             audio_bytes = base64.b64decode(audio_data)
         except Exception as e:
             logger.error(f"Failed to decode audio data: {e}")
+            
+            # Log failed authentication attempt
+            audit_logger = AuditLogger(db)
+            audit_logger.log_authentication(
+                actor_id=user.id,
+                auth_method="voice_biometric",
+                result="failure",
+                metadata={"reason": "invalid_audio_format"},
+                description="Authentication failed: invalid audio data format",
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
             return False, None, "Invalid audio data format", 0.0
         
         # Create voice sample
@@ -92,34 +136,81 @@ class AuthenticationService:
             audio_sample=voice_sample
         )
         
+        # Log authentication attempt
+        audit_logger = AuditLogger(db)
+        
         if verification_result.match:
             logger.info(
                 f"Voice authentication successful for user {user.id} "
                 f"(confidence: {verification_result.confidence:.3f})"
             )
+            
+            # Log successful authentication
+            audit_logger.log_authentication(
+                actor_id=user.id,
+                auth_method="voice_biometric",
+                result="success",
+                metadata={"confidence": verification_result.confidence},
+                description="User authenticated successfully via voice biometrics",
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
+            # Log data access (voiceprint accessed for verification)
+            audit_logger.log_data_access(
+                resource_type="voiceprint",
+                resource_id=user.voiceprint.id,
+                actor_id=user.id,
+                action="verify",
+                result="success",
+                metadata={"confidence": verification_result.confidence},
+                description="Voiceprint accessed for authentication",
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
             return True, user, None, verification_result.confidence
         else:
             logger.warning(
                 f"Voice authentication failed for user {user.id}: "
                 f"{verification_result.message}"
             )
+            
+            # Log failed authentication
+            audit_logger.log_authentication(
+                actor_id=user.id,
+                auth_method="voice_biometric",
+                result="failure",
+                metadata={
+                    "reason": "low_confidence",
+                    "confidence": verification_result.confidence
+                },
+                description=f"Authentication failed: {verification_result.message}",
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
             return False, None, verification_result.message, verification_result.confidence
     
     def authenticate_with_pin(
         self,
         db: Session,
         phone_number: str,
-        pin: str
+        pin: str,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
     ) -> Tuple[bool, Optional[User], Optional[str]]:
         """
         Authenticate user using PIN (fallback method).
         
-        Requirements: 21.4
+        Requirements: 21.4, 15.10
         
         Args:
             db: Database session
             phone_number: User's phone number
             pin: User's PIN
+            ip_address: Optional IP address for audit logging
+            user_agent: Optional user agent for audit logging
         
         Returns:
             Tuple of (success, user, error_message)
@@ -130,6 +221,19 @@ class AuthenticationService:
         user = db.query(User).filter(User.phone_number == phone_number).first()
         if not user:
             logger.warning(f"User not found for phone: {phone_number}")
+            
+            # Log failed authentication attempt
+            audit_logger = AuditLogger(db)
+            audit_logger.log_authentication(
+                actor_id=None,
+                auth_method="pin",
+                result="failure",
+                metadata={"reason": "user_not_found", "phone_number_hash": phone_number[-4:]},
+                description="Authentication failed: user not found",
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
             return False, None, "User not found"
         
         # Verify PIN
@@ -138,11 +242,38 @@ class AuthenticationService:
             pin=pin
         )
         
+        # Log authentication attempt
+        audit_logger = AuditLogger(db)
+        
         if verification_result.match:
             logger.info(f"PIN authentication successful for user {user.id}")
+            
+            # Log successful authentication
+            audit_logger.log_authentication(
+                actor_id=user.id,
+                auth_method="pin",
+                result="success",
+                metadata={},
+                description="User authenticated successfully via PIN",
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
             return True, user, None
         else:
             logger.warning(f"PIN authentication failed for user {user.id}")
+            
+            # Log failed authentication
+            audit_logger.log_authentication(
+                actor_id=user.id,
+                auth_method="pin",
+                result="failure",
+                metadata={"reason": "invalid_pin"},
+                description="Authentication failed: invalid PIN",
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
             return False, None, verification_result.message
     
     def authenticate_hybrid(

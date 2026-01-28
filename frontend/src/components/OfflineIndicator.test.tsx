@@ -1,17 +1,24 @@
 /**
  * Unit Tests for OfflineIndicator Component
  * 
- * Tests offline status display and update notifications
+ * Tests offline status display, update notifications, and voice notifications
  * Requirement 12.4: Notify users when operating in offline mode
+ * Requirement 12.4: Provide voice notification when going offline/online
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { OfflineIndicator } from './OfflineIndicator';
 import * as useServiceWorkerModule from '../services/useServiceWorker';
+import { useOfflineNotification } from '../services/useOfflineNotification';
 
 // Mock the useServiceWorker hook
 vi.mock('../services/useServiceWorker');
+
+// Mock the useOfflineNotification hook
+vi.mock('../services/useOfflineNotification', () => ({
+  useOfflineNotification: vi.fn(),
+}));
 
 describe('OfflineIndicator Component', () => {
   const mockUpdateServiceWorker = vi.fn();
@@ -226,5 +233,100 @@ describe('OfflineIndicator Component', () => {
 
     expect(offlineBanner).toBeTruthy();
     expect(updateBanner).toBeTruthy();
+  });
+
+  describe('Voice Notifications', () => {
+    it('should enable voice notifications by default', () => {
+      vi.spyOn(useServiceWorkerModule, 'useServiceWorker').mockReturnValue([
+        {
+          isOnline: true,
+          isUpdateAvailable: false,
+          isInstalled: false,
+          cacheStats: null,
+        },
+        {
+          updateServiceWorker: mockUpdateServiceWorker,
+          refreshCacheStats: mockRefreshCacheStats,
+        },
+      ]);
+
+      render(<OfflineIndicator />);
+
+      // Voice notifications should be enabled by default
+      expect(useOfflineNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          enabled: true,
+        })
+      );
+    });
+
+    it('should pass language prop to voice notifications', () => {
+      vi.spyOn(useServiceWorkerModule, 'useServiceWorker').mockReturnValue([
+        {
+          isOnline: true,
+          isUpdateAvailable: false,
+          isInstalled: false,
+          cacheStats: null,
+        },
+        {
+          updateServiceWorker: mockUpdateServiceWorker,
+          refreshCacheStats: mockRefreshCacheStats,
+        },
+      ]);
+
+      render(<OfflineIndicator language="hi" />);
+
+      expect(useOfflineNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          language: 'hi',
+        })
+      );
+    });
+
+    it('should pass volume prop to voice notifications', () => {
+      vi.spyOn(useServiceWorkerModule, 'useServiceWorker').mockReturnValue([
+        {
+          isOnline: true,
+          isUpdateAvailable: false,
+          isInstalled: false,
+          cacheStats: null,
+        },
+        {
+          updateServiceWorker: mockUpdateServiceWorker,
+          refreshCacheStats: mockRefreshCacheStats,
+        },
+      ]);
+
+      render(<OfflineIndicator volume={0.9} />);
+
+      expect(useOfflineNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          volume: 0.9,
+        })
+      );
+    });
+
+    it('should allow disabling voice notifications', () => {
+      vi.spyOn(useServiceWorkerModule, 'useServiceWorker').mockReturnValue([
+        {
+          isOnline: true,
+          isUpdateAvailable: false,
+          isInstalled: false,
+          cacheStats: null,
+        },
+        {
+          updateServiceWorker: mockUpdateServiceWorker,
+          refreshCacheStats: mockRefreshCacheStats,
+        },
+      ]);
+
+      render(<OfflineIndicator enableVoiceNotifications={false} />);
+
+      expect(useOfflineNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          enabled: false,
+        })
+      );
+    });
   });
 });

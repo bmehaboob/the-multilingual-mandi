@@ -1,0 +1,165 @@
+# Prometheus Alerting Rules for Multilingual Mandi
+# Requirements: 18.4 - Alert when latency exceeds 10 seconds
+
+groups:
+  - name: latency_alerts
+    interval: 30s
+    rules:
+      # Voice Pipeline Latency Alert (Requirement 18.4)
+      - alert: VoicePipelineHighLatency
+        expr: voice_pipeline_latency_seconds > 10
+        for: 1m
+        labels:
+          severity: critical
+          component: voice_pipeline
+        annotations:
+          summary: "Voice pipeline latency exceeds 10 seconds"
+          description: "Voice pipeline latency is {{ $value }}s (threshold: 10s) for instance {{ $labels.instance }}"
+
+      # STT Service Latency Alert
+      - alert: STTServiceHighLatency
+        expr: stt_latency_seconds > 3
+        for: 1m
+        labels:
+          severity: warning
+          component: stt_service
+        annotations:
+          summary: "STT service latency exceeds 3 seconds"
+          description: "STT latency is {{ $value }}s (threshold: 3s) for instance {{ $labels.instance }}"
+
+      # Translation Service Latency Alert
+      - alert: TranslationServiceHighLatency
+        expr: translation_latency_seconds > 2
+        for: 1m
+        labels:
+          severity: warning
+          component: translation_service
+        annotations:
+          summary: "Translation service latency exceeds 2 seconds"
+          description: "Translation latency is {{ $value }}s (threshold: 2s) for instance {{ $labels.instance }}"
+
+      # TTS Service Latency Alert
+      - alert: TTSServiceHighLatency
+        expr: tts_latency_seconds > 2
+        for: 1m
+        labels:
+          severity: warning
+          component: tts_service
+        annotations:
+          summary: "TTS service latency exceeds 2 seconds"
+          description: "TTS latency is {{ $value }}s (threshold: 2s) for instance {{ $labels.instance }}"
+
+      # API Response Time Alert
+      - alert: APIHighResponseTime
+        expr: http_request_duration_seconds{quantile="0.99"} > 3
+        for: 2m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "API 99th percentile response time exceeds 3 seconds"
+          description: "API p99 response time is {{ $value }}s (threshold: 3s) for endpoint {{ $labels.endpoint }}"
+
+      # Price Query Latency Alert
+      - alert: PriceQueryHighLatency
+        expr: price_query_latency_seconds > 3
+        for: 1m
+        labels:
+          severity: warning
+          component: price_oracle
+        annotations:
+          summary: "Price query latency exceeds 3 seconds"
+          description: "Price query latency is {{ $value }}s (threshold: 3s) for instance {{ $labels.instance }}"
+
+  - name: system_health_alerts
+    interval: 30s
+    rules:
+      # High Error Rate Alert
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} for endpoint {{ $labels.endpoint }}"
+
+      # Service Down Alert
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} on instance {{ $labels.instance }} has been down for more than 1 minute"
+
+      # High CPU Usage Alert
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value | humanize }}% on instance {{ $labels.instance }}"
+
+      # High Memory Usage Alert
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value | humanize }}% on instance {{ $labels.instance }}"
+
+      # Database Connection Pool Exhaustion
+      - alert: DatabaseConnectionPoolExhausted
+        expr: db_connection_pool_usage > 0.9
+        for: 2m
+        labels:
+          severity: critical
+          component: database
+        annotations:
+          summary: "Database connection pool nearly exhausted"
+          description: "Database connection pool usage is {{ $value | humanizePercentage }} on instance {{ $labels.instance }}"
+
+  - name: accuracy_alerts
+    interval: 1m
+    rules:
+      # High STT Correction Rate Alert
+      - alert: HighSTTCorrectionRate
+        expr: stt_correction_rate > 0.20
+        for: 5m
+        labels:
+          severity: warning
+          component: stt_service
+        annotations:
+          summary: "High STT correction rate detected"
+          description: "STT correction rate is {{ $value | humanizePercentage }} (threshold: 20%) for language {{ $labels.language }}"
+
+      # High Transaction Abandonment Rate Alert
+      - alert: HighTransactionAbandonmentRate
+        expr: transaction_abandonment_rate > 0.30
+        for: 10m
+        labels:
+          severity: warning
+          component: transactions
+        annotations:
+          summary: "High transaction abandonment rate detected"
+          description: "Transaction abandonment rate is {{ $value | humanizePercentage }} (threshold: 30%)"
+
+      # Low Translation Confidence Alert
+      - alert: LowTranslationConfidence
+        expr: avg(translation_confidence_score) < 0.85
+        for: 5m
+        labels:
+          severity: warning
+          component: translation_service
+        annotations:
+          summary: "Low average translation confidence"
+          description: "Average translation confidence is {{ $value }} (threshold: 0.85) for language pair {{ $labels.source_lang }}-{{ $labels.target_lang }}"

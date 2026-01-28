@@ -1,12 +1,24 @@
-import { useEffect, useState } from 'react'
-import { AudioDemo } from './components/AudioDemo'
-import { PriceCheckUI } from './components/PriceCheckUI'
-import { ConversationUIDemo } from './components/ConversationUIDemo'
-import { VoiceCommandDemo } from './components/VoiceCommandDemo'
-import { AudioFeedbackDemo } from './components/AudioFeedbackDemo'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { OfflineIndicator } from './components/OfflineIndicator'
 
+// Lazy load heavy components for code splitting (Requirement 10.5)
+const AudioDemo = lazy(() => import('./components/AudioDemo').then(m => ({ default: m.AudioDemo })))
+const PriceCheckUI = lazy(() => import('./components/PriceCheckUI').then(m => ({ default: m.PriceCheckUI })))
+const ConversationUIDemo = lazy(() => import('./components/ConversationUIDemo').then(m => ({ default: m.ConversationUIDemo })))
+const VoiceCommandDemo = lazy(() => import('./components/VoiceCommandDemo').then(m => ({ default: m.VoiceCommandDemo })))
+const AudioFeedbackDemo = lazy(() => import('./components/AudioFeedbackDemo').then(m => ({ default: m.AudioFeedbackDemo })))
+
 type View = 'home' | 'price-check' | 'conversation' | 'audio' | 'voice-commands' | 'audio-feedback'
+
+// Loading fallback component
+function LoadingFallback() {
+  return (
+    <div style={styles.loadingContainer}>
+      <div style={styles.loadingSpinner}></div>
+      <p style={styles.loadingText}>Loading...</p>
+    </div>
+  )
+}
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('home')
@@ -24,15 +36,35 @@ function App() {
   const renderView = () => {
     switch (currentView) {
       case 'price-check':
-        return <PriceCheckUI language={language} userLocation={{ state: 'Maharashtra' }} />
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <PriceCheckUI language={language} userLocation={{ state: 'Maharashtra' }} />
+          </Suspense>
+        )
       case 'conversation':
-        return <ConversationUIDemo />
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <ConversationUIDemo />
+          </Suspense>
+        )
       case 'audio':
-        return <AudioDemo />
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <AudioDemo />
+          </Suspense>
+        )
       case 'voice-commands':
-        return <VoiceCommandDemo />
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <VoiceCommandDemo />
+          </Suspense>
+        )
       case 'audio-feedback':
-        return <AudioFeedbackDemo />
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <AudioFeedbackDemo />
+          </Suspense>
+        )
       default:
         return <HomeView onNavigate={setCurrentView} />
     }
@@ -283,10 +315,6 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
     cursor: 'pointer',
     transition: 'transform 0.2s, box-shadow 0.2s',
-    ':hover': {
-      transform: 'translateY(-4px)',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-    },
   },
   featureIcon: {
     fontSize: '3rem',
@@ -333,6 +361,27 @@ const styles: Record<string, React.CSSProperties> = {
   },
   statLabel: {
     fontSize: '0.95rem',
+    color: '#666',
+  },
+  loadingContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '4rem 2rem',
+    minHeight: '300px',
+  },
+  loadingSpinner: {
+    width: '50px',
+    height: '50px',
+    border: '4px solid #f3f3f3',
+    borderTop: '4px solid #2e7d32',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+  },
+  loadingText: {
+    marginTop: '1rem',
+    fontSize: '1.1rem',
     color: '#666',
   },
 }

@@ -2,8 +2,10 @@
 import time
 import logging
 from typing import Optional, List, Dict, Any
+from uuid import UUID
 import numpy as np
 from pathlib import Path
+from sqlalchemy.orm import Session
 
 from .models import TranscriptionResult
 
@@ -133,7 +135,11 @@ class STTService:
         audio: np.ndarray,
         language: str,
         dialect: Optional[str] = None,
-        sample_rate: int = 16000
+        sample_rate: int = 16000,
+        user_id: Optional[UUID] = None,
+        db: Optional[Session] = None,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
     ) -> TranscriptionResult:
         """
         Transcribe audio to text.
@@ -143,11 +149,15 @@ class STTService:
             language: ISO 639-3 language code (e.g., 'hin' for Hindi)
             dialect: Optional dialect identifier
             sample_rate: Audio sample rate in Hz
+            user_id: Optional user ID for audit logging
+            db: Optional database session for audit logging
+            ip_address: Optional IP address for audit logging
+            user_agent: Optional user agent for audit logging
         
         Returns:
             TranscriptionResult with text, confidence, and metadata
         
-        Validates: Requirements 2.1, 2.2
+        Validates: Requirements 2.1, 2.2, 15.10
         """
         start_time = time.time()
         
@@ -170,6 +180,33 @@ class STTService:
                 f"Transcription took {processing_time_ms:.0f}ms, "
                 f"exceeds 3000ms requirement"
             )
+        
+        # Audit logging
+        if db and user_id:
+            try:
+                from app.services.audit.audit_logger import AuditLogger
+                audit_logger = AuditLogger(db)
+                
+                audit_logger.log_data_processing(
+                    operation="transcription",
+                    resource_type="audio",
+                    resource_id=None,  # Audio is not persisted
+                    actor_id=user_id,
+                    result="success" if result.confidence >= self.confidence_threshold else "partial",
+                    metadata={
+                        "language": language,
+                        "dialect": dialect,
+                        "confidence": result.confidence,
+                        "processing_time_ms": processing_time_ms,
+                        "audio_duration_seconds": len(audio) / sample_rate,
+                        "requires_confirmation": result.confidence < self.confidence_threshold
+                    },
+                    description=f"Audio transcribed to text in {language}",
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+            except Exception as e:
+                logger.error(f"Failed to log audit entry: {e}")
         
         return result
     

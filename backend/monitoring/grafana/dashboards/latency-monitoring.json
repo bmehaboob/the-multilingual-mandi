@@ -1,0 +1,263 @@
+{
+  "dashboard": {
+    "title": "Multilingual Mandi - Latency Monitoring",
+    "tags": ["multilingual-mandi", "latency", "performance"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Voice Pipeline Latency Breakdown",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 0, "w": 24, "h": 10},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(language_detection_latency_seconds_bucket[5m]))",
+            "legendFormat": "Language Detection (p95)",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(stt_latency_seconds_bucket[5m]))",
+            "legendFormat": "STT (p95)",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(translation_latency_seconds_bucket[5m]))",
+            "legendFormat": "Translation (p95)",
+            "refId": "C"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(tts_latency_seconds_bucket[5m]))",
+            "legendFormat": "TTS (p95)",
+            "refId": "D"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(voice_pipeline_latency_seconds_bucket[5m]))",
+            "legendFormat": "Total Pipeline (p95)",
+            "refId": "E"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Latency",
+            "logBase": 1,
+            "show": true
+          }
+        ],
+        "seriesOverrides": [
+          {
+            "alias": "Total Pipeline (p95)",
+            "linewidth": 3,
+            "dashes": true
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 8,
+            "colorMode": "custom",
+            "fillColor": "rgba(255, 165, 0, 0.1)",
+            "lineColor": "rgb(255, 165, 0)",
+            "op": "gt",
+            "fill": true,
+            "line": true
+          },
+          {
+            "value": 10,
+            "colorMode": "custom",
+            "fillColor": "rgba(255, 0, 0, 0.2)",
+            "lineColor": "rgb(255, 0, 0)",
+            "op": "gt",
+            "fill": true,
+            "line": true
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Latency Percentiles - Voice Pipeline",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 10, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(voice_pipeline_latency_seconds_bucket[5m]))",
+            "legendFormat": "p50 (median)",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.75, rate(voice_pipeline_latency_seconds_bucket[5m]))",
+            "legendFormat": "p75",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.90, rate(voice_pipeline_latency_seconds_bucket[5m]))",
+            "legendFormat": "p90",
+            "refId": "C"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(voice_pipeline_latency_seconds_bucket[5m]))",
+            "legendFormat": "p95",
+            "refId": "D"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(voice_pipeline_latency_seconds_bucket[5m]))",
+            "legendFormat": "p99",
+            "refId": "E"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Latency",
+            "logBase": 1,
+            "show": true
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Latency by Language Pair",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 10, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(voice_pipeline_latency_seconds_bucket[5m])) by (source_language, target_language)",
+            "legendFormat": "{{source_language}} -> {{target_language}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Latency (p95)",
+            "logBase": 1,
+            "show": true
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Price Query Latency",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 18, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(price_query_latency_seconds_bucket[5m]))",
+            "legendFormat": "p95",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(price_query_latency_seconds_bucket[5m]))",
+            "legendFormat": "p99",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Latency",
+            "logBase": 1,
+            "show": true
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 3,
+            "colorMode": "critical",
+            "op": "gt"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "API Endpoint Latency",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 18, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) by (endpoint)",
+            "legendFormat": "{{endpoint}} (p95)",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Latency",
+            "logBase": 1,
+            "show": true
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 3,
+            "colorMode": "critical",
+            "op": "gt"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Latency Alerts (Last 24h)",
+        "type": "table",
+        "gridPos": {"x": 0, "y": 24, "w": 24, "h": 8},
+        "targets": [
+          {
+            "expr": "ALERTS{alertname=~\".*Latency\"}",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {},
+              "indexByName": {},
+              "renameByName": {
+                "alertname": "Alert",
+                "alertstate": "State",
+                "severity": "Severity",
+                "component": "Component",
+                "instance": "Instance"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Average Latency Trend (24h)",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 32, "w": 24, "h": 6},
+        "targets": [
+          {
+            "expr": "avg_over_time(voice_pipeline_latency_seconds[24h])",
+            "legendFormat": "24h average",
+            "refId": "A"
+          },
+          {
+            "expr": "avg_over_time(voice_pipeline_latency_seconds[1h])",
+            "legendFormat": "1h average",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Latency",
+            "logBase": 1,
+            "show": true
+          }
+        ]
+      }
+    ]
+  }
+}

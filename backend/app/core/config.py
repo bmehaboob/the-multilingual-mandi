@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     # CORS
     ALLOWED_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
     
+    # Audio Storage
+    AUDIO_STORAGE_PATH: str = "audio_storage"
+    AUDIO_RETENTION_HOURS: int = 24
+    AUDIO_CLEANUP_INTERVAL_HOURS: int = 1
+    
     @property
     def allowed_origins_list(self) -> List[str]:
         """Convert comma-separated origins to list"""

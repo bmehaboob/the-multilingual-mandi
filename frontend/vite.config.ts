@@ -187,13 +187,47 @@ export default defineConfig({
   build: {
     target: 'esnext',
     minify: 'esbuild',
+    // Requirement 10.5: Optimize bundle size with code splitting
     rollupOptions: {
       output: {
+        // Manual chunks for better code splitting
         manualChunks: {
-          vendor: ['react', 'react-dom'],
-          store: ['zustand']
-        }
-      }
-    }
-  }
+          // Core React libraries
+          'react-vendor': ['react', 'react-dom'],
+          // State management
+          'store': ['zustand'],
+          // Audio processing modules (heavy)
+          'audio': [
+            './src/services/audio/AudioCaptureModule',
+            './src/services/audio/AudioCompressionModule',
+            './src/services/audio/AudioPlaybackModule',
+            './src/services/audio/AudioFeedbackSystem',
+          ],
+          // Voice command modules
+          'voice': [
+            './src/services/voice/VoiceCommandHandler',
+          ],
+          // Offline functionality
+          'offline': [
+            './src/services/OfflineSyncManager',
+            './src/services/OfflineDataCache',
+          ],
+        },
+        // Optimize chunk file names
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
+      },
+    },
+    // Enable CSS code splitting
+    cssCodeSplit: true,
+    // Chunk size warnings
+    chunkSizeWarningLimit: 500, // 500 KB warning threshold
+    // Source maps for production debugging (optional, increases size)
+    sourcemap: false,
+  },
+  // Optimize dependencies
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'zustand'],
+  },
 })
