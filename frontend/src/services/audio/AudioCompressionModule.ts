@@ -187,7 +187,8 @@ export class AudioCompressionModule {
     );
     
     const buffer = offlineContext.createBuffer(1, audio.data.length, audio.sampleRate);
-    buffer.copyToChannel(audio.data, 0);
+    const channelData = new Float32Array(audio.data);
+    buffer.copyToChannel(channelData, 0);
     
     const source = offlineContext.createBufferSource();
     source.buffer = buffer;
@@ -198,7 +199,8 @@ export class AudioCompressionModule {
     const streamDestination = audioContext.createMediaStreamDestination();
     
     const streamBuffer = audioContext.createBuffer(1, audio.data.length, audio.sampleRate);
-    streamBuffer.copyToChannel(audio.data, 0);
+    const streamChannelData = new Float32Array(audio.data);
+    streamBuffer.copyToChannel(streamChannelData, 0);
     
     const streamSource = audioContext.createBufferSource();
     streamSource.buffer = streamBuffer;
